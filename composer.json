@@ -1,0 +1,36 @@
+{
+    "name": "lavamusic/code-generation",
+    "license": "Apache-2.0",
+    "require": {
+        "nette/php-generator": "^3.2",
+        "easyswoole/command": "^1.1"
+    },
+    "authors": [
+        {
+            "name": "XueSi",
+            "email": "1592328848@qq.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "LavaMusic\\GenerateCode\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LavaMusic\\CodeGeneration\\Test\\": "Tests/",
+            "LavaMusic\\CodeGeneration\\UnitTest\\": "UnitTest/",
+            "App\\": "App/",
+            "UnitTest\\": "UnitTest/"
+        }
+    },
+    "require-dev": {
+        "easyswoole/easyswoole": "^3.3",
+        "easyswoole/swoole-ide-helper": "^1.2",
+        "easyswoole/phpunit": "^1.0"
+    },
+    "bin": [
+        "bin/code-generator"
+    ]
+}
