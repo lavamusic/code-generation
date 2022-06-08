@@ -41,6 +41,7 @@ class GenerateCodeCommand implements CommandInterface
         $commandHelp->addAction('logic', 'create logic class');
         $commandHelp->addAction('validate', 'create validate class');
         $commandHelp->addAction('errorCodeConst', 'create errorCodeConst class');
+        $commandHelp->addAction('entity', 'create entity class');
         $commandHelp->addActionOpt('-tableName', 'specify table name');
         $commandHelp->addActionOpt('-controllerName', 'specify controller name');
         $commandHelp->addActionOpt('-enableRoute', 'enable automatic route generation');
