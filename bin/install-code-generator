@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+
+require_once getcwd() . '/vendor/autoload.php';
+
+$file = getcwd() . '/bootstrap.php';
+if (!file_exists($file)) {
+    \EasySwoole\Utility\File::touchFile($file);
+}
+
+$content = file_get_contents($file);
+
+$regCommandStr = "\EasySwoole\Command\CommandManager::getInstance()->addCommand(new \LavaMusic\GenerateCode\GenerateCodeCommand());";
+
+if (strpos($content, $regCommandStr) !== false) {
+    return;
+}
+
+$content .= "\n$regCommandStr";
+
+file_put_contents($file, $content);
