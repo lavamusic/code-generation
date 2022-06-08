@@ -11,10 +11,15 @@ namespace LavaMusic\GenerateCode;
 
 use App\Api\ApiBase;
 use App\Common\BaseLogic;
+use App\Common\Lib\Entity\AbstractEntity;
+use EasySwoole\EasySwoole\Config;
+use EasySwoole\Mysqli\Client;
 use LavaMusic\GenerateCode\ConstGeneration\ConstConfig;
 use LavaMusic\GenerateCode\ConstGeneration\ConstGeneration;
 use LavaMusic\GenerateCode\ControllerGeneration\ControllerConfig;
 use LavaMusic\GenerateCode\ControllerGeneration\ControllerGeneration;
+use LavaMusic\GenerateCode\EntityGeneration\EntityConfig;
+use LavaMusic\GenerateCode\EntityGeneration\EntityGeneration;
 use LavaMusic\GenerateCode\ErrorCodeConstGeneration\ErrorCodeConstConfig;
 use LavaMusic\GenerateCode\ErrorCodeConstGeneration\ErrorCodeConstGeneration;
 use LavaMusic\GenerateCode\LogicGeneration\LogicConfig;
@@ -28,7 +33,6 @@ use LavaMusic\GenerateCode\ValidateGeneration\ValidateGeneration;
 use App\Common\Lib\Validate\Validate;
 use App\Model\LavaBaseModel;
 use App\Route\RouteInterface;
-use EasySwoole\ORM\Db\Connection;
 
 class CodeGeneration
 {
@@ -45,15 +49,12 @@ class CodeGeneration
     protected $logicBaseNameSpace = "App\\Logic";
     protected $validateBaseNameSpace = "App\\Validate";
     protected $errorCodeConstBaseNameSpace = "App\\Consts\\ErrorCode";
+    protected $entityBaseNameSpace = "App\\Entity";
     protected $rootPath;
 
-    public function __construct(string $tableName = null, Connection $connection = null)
+    public function __construct(string $tableName = null)
     {
-        if ($tableName && $connection) {
-            $tableObjectGeneration = new \EasySwoole\ORM\Utility\TableObjectGeneration($connection, $tableName);
-            $schemaInfo = $tableObjectGeneration->generationTable();
-            $this->schemaInfo = $schemaInfo;
-        }
+
     }
 
     private function getControllerGeneration(string $path, string $extendClass = ApiBase::class): ControllerGeneration
@@ -164,6 +165,118 @@ class CodeGeneration
         $errorCodeConstConfig->setRootPath($this->getRootPath());
         $errorCodeConstGeneration = new ErrorCodeConstGeneration($errorCodeConstConfig);
         return $errorCodeConstGeneration->generate();
+    }
+
+    public function generationEntity(string $path, string $connectName, string $tableName, string $extendClass = AbstractEntity::class)
+    {
+        $fullPath = "{$this->entityBaseNameSpace}{$path}";
+        $namespaceArray = explode("\\", $fullPath);
+        $className = array_pop($namespaceArray);
+        $namespace = join("\\", $namespaceArray);
+        $entityConfig = new EntityConfig($className, $namespace, $extendClass);
+        $entityConfig->setRootPath($this->getRootPath());
+        $entityConfig->setTableName($tableName);
+
+        list($tableComment, $propertyConstData) = $this->getPropertyConstData($connectName, $tableName);
+
+        // 补充字段 create_time 和 update_time
+        $propertyNameArray = array_column($propertyConstData, 'propertyName');
+        $needProperty = ['create_time', 'update_time'];
+        foreach ($needProperty as $need) {
+            if (!in_array($need, $propertyNameArray, true)) {
+                $constName = $this->decamelize($need);
+                $propertyConstData[] = [
+                    'propertyName'    => $need,
+                    'propertyType'    => 'int',
+                    'constName'    => $constName,
+                    'propertyComment' => $need === 'create_time' ? '创建时间' : '更新时间'
+                ];
+            }
+        }
+
+        $entityConfig->setTableComment($tableComment);
+        $entityConfig->setPropertyConstData($propertyConstData);
+        $entityGeneration = new EntityGeneration($entityConfig);
+        return $entityGeneration->generate();
+    }
+
+    const MYSQL_TYPE_MAP = [
+        'int'       => 'int',
+        'tinyint'   => 'int',
+        'smallint'  => 'int',
+        'mediumint' => 'int',
+        'float'     => 'float',
+        'bigint'    => 'int',
+        'double'    => 'float',
+        'decimal'   => 'float',
+        'char'      => 'string',
+        'varchar'   => 'string',
+        'text'      => 'string',
+        'longtext'  => 'string',
+        'datetime'  => 'string',
+        'string'    => 'string',
+    ];
+
+    /**
+     * 驼峰转大写下划线常量
+     *
+     * @param string $word
+     *
+     * @return string
+     */
+    private function decamelize(string $word)
+    {
+        return strtoupper(
+            preg_replace(
+                ["/([A-Z]+)/", "/_([A-Z]+)([A-Z][a-z])/"],
+                ["_$1", "_$1_$2"],
+                lcfirst($word)
+            )
+        );
+    }
+
+    private function getPropertyConstData(string $connectName, string $tableName)
+    {
+        $mysqlConfig = Config::getInstance()->getConf("MYSQL.{$connectName}");
+        if (empty($mysqlConfig)) {
+            throw new \Exception("Config MYSQL.{$connectName} is not set.");
+        }
+
+        $dbName = $mysqlConfig['database'];
+
+        $mysqliConfObj = new \EasySwoole\Mysqli\Config($mysqlConfig);
+
+        $client = new Client($mysqliConfObj);
+
+        // 读取表信息
+        $tableSql = "SELECT TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{$dbName}' AND TABLE_NAME = '{$tableName}';";
+        $client->queryBuilder()->raw($tableSql);
+        $tableInfo = $client->execBuilder();
+        if (empty($tableInfo) || !isset($tableInfo[0]) || empty($tableInfo[0])) {
+            throw new \Exception("{$dbName}.{$tableName} is not exist.");
+        }
+        $tableComment = $tableInfo[0]['TABLE_COMMENT'];
+
+        // 读取表字段
+        $fieldSql = "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{$dbName}' AND TABLE_NAME = '{$tableName}';";
+        $client->queryBuilder()->raw($fieldSql);
+        $tableFieldInfo = $client->execBuilder();
+        if (empty($tableFieldInfo)) {
+            throw new \Exception("读取{$dbName}.{$tableName}表字段信息失败.");
+        }
+
+        $columnInfo = [];
+        foreach ($tableFieldInfo as $item) {
+            $constName = $this->decamelize($item['COLUMN_NAME']);
+            $columnInfo[] = [
+                'propertyName'    => $item['COLUMN_NAME'],
+                'propertyType'    => self::MYSQL_TYPE_MAP[$item['DATA_TYPE']],
+                'constName'       => $constName,
+                'propertyComment' => trim($item['COLUMN_COMMENT']),
+            ];
+        }
+
+        return [$tableComment, $columnInfo];
     }
 
     /**

@@ -3,7 +3,8 @@
     "license": "Apache-2.0",
     "require": {
         "nette/php-generator": "^3.2",
-        "easyswoole/command": "^1.1"
+        "easyswoole/command": "^1.1",
+        "easyswoole/orm": "^1.5"
     },
     "authors": [
         {
@@ -11,7 +12,6 @@
             "email": "1592328848@qq.com"
         }
     ],
-    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
             "LavaMusic\\GenerateCode\\": "src/"
@@ -31,6 +31,7 @@
         "easyswoole/phpunit": "^1.0"
     },
     "bin": [
-        "bin/code-generator"
+        "bin/code-generator",
+        "bin/install-code-generator"
     ]
 }

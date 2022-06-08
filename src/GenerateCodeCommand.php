@@ -50,6 +50,8 @@ class GenerateCodeCommand implements CommandInterface
         $commandHelp->addActionOpt('-logicName', 'specify logic name');
         $commandHelp->addActionOpt('-validateName', 'specify validate name');
         $commandHelp->addActionOpt('-errorCodeConstName', 'specify errorCodeConst name');
+        $commandHelp->addActionOpt('-entityName', 'specify entity name');
+        $commandHelp->addActionOpt('-connectName', 'specify db-pool connect name');
         $commandHelp->addActionOpt('-commonName', 'specify common command class name');
         return $commandHelp;
     }
@@ -114,6 +116,10 @@ class GenerateCodeCommand implements CommandInterface
                     // 生成多语言
                     $result = $this->generateLang();
                     break;
+                case 'entity':
+                    // 生成多语言
+                    $result = $this->generateEntity();
+                    break;
                 default:
                     $result = CommandManager::getInstance()->displayCommandHelp($this->commandName());
                     break;
@@ -145,6 +151,27 @@ class GenerateCodeCommand implements CommandInterface
             }
         } else {
             return Color::error('controllerName must be specified');
+        }
+
+        return new ArrayToTextTable($table);
+    }
+
+    protected function generateEntity()
+    {
+        $commandManager = CommandManager::getInstance();
+        $entityPath = $commandManager->getOpt('entityName');
+        $tableName = $commandManager->getOpt('tableName');
+        $connectName = $commandManager->getOpt('connectName', 'default');
+
+        $codeGeneration = new CodeGeneration();
+        $this->trySetDiGenerationPath($codeGeneration);
+
+        if ($entityPath) {
+            // 生成实体类文件
+            $filePath = $codeGeneration->generationEntity($entityPath, $connectName, $tableName);
+            $table[] = ['fileType' => 'Entity', "filePath" => $filePath];
+        } else {
+            return Color::error('entityName must be specified');
         }
 
         return new ArrayToTextTable($table);

@@ -15,3 +15,5 @@ date_default_timezone_set('Asia/Shanghai');
 \EasySwoole\Component\Di::getInstance()->set('CodeGeneration.rootPath', getcwd());
 
 \EasySwoole\Command\CommandManager::getInstance()->addCommand(new \LavaMusic\GenerateCode\GenerateCodeCommand());
+
+\EasySwoole\EasySwoole\Config::getInstance()->loadDir(__DIR__ . '/Config');
